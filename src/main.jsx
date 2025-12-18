@@ -5,7 +5,6 @@ import Hero from './components/hero'
 import Reason from './components/reason'
 import Explanation from './components/explanation'
 import bgGradient from '../src/assets/bg-gradient.png'
-import net from '../src/assets/net.png'
 import Footer from './components/footer'
 
 
