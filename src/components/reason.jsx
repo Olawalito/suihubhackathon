@@ -9,11 +9,11 @@ export default function Reason() {
             <div className="text-white bg-transparent border-2 border-[#FFFFFF33] grid grid-cols-2 items-center mt-10 mx-6 md:mx-60 rounded-2xl backdrop-blur-2xl">
                 <div className="flex items-center justify-center gap-2 p-4 border-r border-gray-500/20 bg-transparent">
                     <img src={icon} className="w-4 h-4" />
-                    <span>Decentralized Savings</span>
+                    <span>Traditional Ajo</span>
                 </div>
                 <div className="flex items-center justify-center gap-2 p-4">
                     <img src={icon} className="w-4 h-4" />
-                    <span>Automated Smart Contracts</span>
+                    <span>Trust Circle</span>
                 </div>
             </div>
         </div>
