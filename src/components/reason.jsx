@@ -2,7 +2,7 @@ import icon from '../assets/icon.png'
 
 export default function Reason() {
     return(
-        <div className="mt-2 text-center">
+        <div className="mt text-center">
         <h1 className="text-white text-xl md:text-3xl">Why Trust Circle?</h1>
 
         <div className="justify-center items-center text-center text-sm py-3">
