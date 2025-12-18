@@ -1,10 +1,9 @@
 import { useState } from "react";
-import logo from "../assets/logo.png";
-import logo2 from "../assets/logo_2.png";
-import hamburger from "../assets/hamburger.png";
-import { ConnectWallet } from "./connectButton";
-
-export default function Header() {
+import logo from "../../assets/logo.png";
+import logo2 from "../../assets/logo_2.png";
+import hamburger from "../../assets/hamburger.png";
+import { ConnectWallet } from "../connectButton";
+export default function DashboardHeader() {
   const [activeLink, setActiveLink] = useState("home");
 
   const handleNavClick = (e, targetId) => {
@@ -24,9 +23,9 @@ export default function Header() {
   };
   const navClassName = ``;
   const links = [
-    { id: "home", label: "Home" },
-    { id: "About", label: "About" },
-    { id: "Security", label: "Security" },
+    { id: "Dashboard", label: "Dashboard" },
+    { id: "My circle", label: "About" },
+    { id: "Activity", label: "Security" },
     { id: "Docs", label: "Docs" },
   ];
 
