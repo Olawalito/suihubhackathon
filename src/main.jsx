@@ -6,6 +6,7 @@ import Reason from './components/reason'
 import Explanation from './components/explanation'
 import bgGradient from '../src/assets/bg-gradient.png'
 import net from '../src/assets/net.png'
+import Footer from './components/footer'
 
 
 createRoot(document.getElementById('root')).render(
@@ -20,5 +21,6 @@ createRoot(document.getElementById('root')).render(
   <div>
   <Explanation/>
   </div>
+   <Footer/>
   </>
 )
