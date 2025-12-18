@@ -7,7 +7,7 @@ import infoicon4 from '../assets/info-icon4.png'
 
 export default function Explanation() {
     return(
-        <div className="text-white text-center mt-12 px-4">
+        <div className="text-white text-center mt-12 sm:mt-24 px-4">
             <h1 className="text-3xl font-semibold">How it works</h1>
                      <div className="mt-6">
                         <div className="first-set grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch justify-items-center">
@@ -22,3 +22,5 @@ export default function Explanation() {
         </div>
     )
 }
+
+/* image module declarations */
