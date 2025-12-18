@@ -1,4 +1,4 @@
-import icon from '../assets/icon.png'
+import icon from '../assets/Icon.png'
 
 export default function Reason() {
     return(
