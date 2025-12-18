@@ -1,1 +1,35 @@
 @import "tailwindcss";
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Hero background sizing — keep visual height consistent across breakpoints */
+.hero-bg {
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  width: 100%;
+  display: block;
+  /* base (desktop) height */
+  min-height: 680px;
+}
+
+@media (max-width: 1024px) {
+  .hero-bg {
+    min-height: 620px;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-bg {
+    min-height: 520px;
+  }
+}
+
+@media (max-width: 420px) {
+  .hero-bg {
+    min-height: 460px;
+  }
+}
+
