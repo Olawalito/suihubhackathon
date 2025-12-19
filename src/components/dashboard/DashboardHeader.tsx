@@ -28,7 +28,6 @@ export default function DashboardHeader() {
     { id: "Activity", label: "Security" },
     { id: "Docs", label: "Docs" },
   ];
-
   return (
     <header className="w-full px-4 md:px-8 py-4 md:py-6">
       <div className="max-w-7xl mx-auto  flex items-center bg-[#FFFFFF2B] sm:bg-transparent justify-between gap-4  rounded-[90px] sm:rounded-none">

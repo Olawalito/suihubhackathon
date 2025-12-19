@@ -4,7 +4,6 @@ import Reason from '../components/reason'
 import Explanation from '../components/explanation'
 import bgGradient from '../assets/bg-gradient.png'
 import Footer from '../components/footer'
-import Addcircle from '../components/Mycircle/addCircle'
 
 function Home() {
   return (
