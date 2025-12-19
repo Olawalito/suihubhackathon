@@ -1,0 +1,2 @@
+export const PACKAGE_ID = "0x5871116344cb524a28855439480f8aaacd5a669196b9766861c099a53d3bb16b";
+export const MODULE_NAME = "circle";

@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
 import DashboardHeader from "./DashboardHeader";
 import {
-  
+  ConnectButton,
+  useSuiClient,
   useCurrentAccount,
-  
+  useSignAndExecuteTransaction,
 } from "@mysten/dapp-kit";
+import { upsertUser, createCircle, addWallet } from "./helpers";
+import { Transaction } from "@mysten/sui/transactions";
+import { PACKAGE_ID, MODULE_NAME } from "../../../constant";
+
 import DashboardCard from "./DashboardCard";
 
 type IconType = "active" | "time" | "give";
@@ -33,70 +38,148 @@ interface DashboardResponse {
 export default function Dashboard() {
   const wallet = useCurrentAccount();
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
-
-useEffect(() => {
-  if (!wallet?.address) {
-    setDashboard(null);
-    return;
-  }
-
-  const controller = new AbortController();
-  const { signal } = controller;
-
-  (async () => {
-    try {
-      const res = await fetch(
-        `http://localhost:3000/api/dashboard/address/${wallet.address}`,
-        { signal }
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status} - ${res.statusText}`);
-      const data: DashboardResponse = await res.json();
-      setDashboard(data);
-    } catch (err: any) {
-      if (err.name === "AbortError") return;
-      console.error("Failed to load dashboard:", err);
+ const account = useCurrentAccount();
+    const userAddress = account?.address || "";
+    const client = useSuiClient();
+    const { mutateAsync: signAndExecuteTransaction } =
+      useSignAndExecuteTransaction({
+        execute: async ({ bytes, signature }) =>
+          await client.executeTransactionBlock({
+            transactionBlock: bytes,
+            signature,
+            options: {
+              // Raw effects are required so the effects can be reported back to the wallet
+              showRawEffects: true,
+              // Select additional data to return
+              showObjectChanges: true,
+            },
+          }),
+      });
+  useEffect(() => {
+    if (!wallet?.address) {
+      setDashboard(null);
+      return;
     }
-  })();
 
-  return () => {
-    controller.abort();
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `https://trust-circle-backend.onrender.com/api/dashboard/address/${wallet.address}`,
+          { signal }
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status} - ${res.statusText}`);
+        const data: DashboardResponse = await res.json();
+        setDashboard(data);
+      } catch (err: any) {
+        if (err.name === "AbortError") return;
+        console.error("Failed to load dashboard:", err);
+      }
+    })();
+
+    return () => {
+      controller.abort();
+    };
+  }, [wallet?.address]);
+
+  const mistToSui = (mist: number | string | undefined | null): string => {
+    const n = Number(mist ?? 0);
+    if (!isFinite(n)) return "0";
+    const sui = n / 1_000_000_000; // 1 SUI = 1,000,000,000 mist
+    return Number(sui.toFixed(6)).toString(); // trim to 6 decimals, adjust as needed
   };
-}, [wallet?.address]);
 
-const mistToSui = (mist: number | string | undefined | null): string => {
-  const n = Number(mist ?? 0);
-  if (!isFinite(n)) return "0";
-  const sui = n / 1_000_000_000; // 1 SUI = 1,000,000,000 mist
-  return Number(sui.toFixed(6)).toString(); // trim to 6 decimals, adjust as needed
-};
+  const dashboardData: {
+    title: string;
+    count: number | string;
+    unit: string;
+    subtitle: string;
+    iconType: IconType;
+  }[] = [
+    {
+      title: "Active Circles",
+      count: dashboard ? dashboard.circles.length : 0,
+      unit: "Circles",
+      subtitle: "Next contribution in 20 hours",
+      iconType: "active",
+    },
+    {
+      title: "Next Payout",
+      count: dashboard ? mistToSui(dashboard.next_payout.payout_amount) : "0",
+      unit: "SUI",
+      subtitle: `from ${dashboard?.next_payout.name}`,
+      iconType: "give",
+    },
+    {
+      title: "Next Contribution Due",
+      count: dashboard ? mistToSui(dashboard.next_contribution.total) : "0",
+      unit: "SUI",
+      subtitle: "Due in 20 hours",
+      iconType: "time",
+    },
+  ];
 
-const dashboardData: { title: string; count: number | string; unit: string; subtitle: string; iconType: IconType }[] = [
-  {
-    title: "Active Circles",
-    count: dashboard ? dashboard.circles.length : 0,
-    unit: "Circles",
-    subtitle: "Next contribution in 20 hours",
-    iconType: "active",
-  },
-  {
-    title: "Next Payout",
-    count: dashboard ? mistToSui(dashboard.next_payout.payout_amount) : "0",
-    unit: "SUI",
-    subtitle: `from ${dashboard?.next_payout.name}`,
-    iconType: "give",
-  },
-  {
-    title: "Next Contribution Due",
-    count: dashboard ? mistToSui(dashboard.next_contribution.total) : "0",
-    unit: "SUI",
-    subtitle: "Due in 20 hours",
-    iconType: "time",
-  },
-];
+  if (dashboard) {
+    console.log("Dashboard data:", dashboard);
+  }
+  async function excecutepayContribution(
+    contributionAmount: number,
+    circleObjectid: string,
+    currentRound: number,
+    sui_object_id: string
+  ) {
+   
+    const txb = new Transaction();
+    const [splitCoin] = txb.splitCoins(txb.gas, [
+      txb.pure.u64(Number(contributionAmount)),
+    ]);
+    txb.moveCall({
+      target: `${PACKAGE_ID}::${MODULE_NAME}::pay_contribution`,
+      arguments: [txb.object(circleObjectid), splitCoin],
+    });
+    const txResult = await signAndExecuteTransaction({
+      transaction: txb,
+    });
+    await client.waitForTransaction({
+      digest: txResult.digest,
+    });
 
-if (dashboard) {
-  console.log("Dashboard data:", dashboard);
-}
+    const eventsResult = await client.queryEvents({
+      query: { Transaction: txResult.digest },
+    });
+    console.log(eventsResult);
+    if (eventsResult.data.length > 0) {
+      const firstEvent = eventsResult.data[0]?.parsedJson;
+      const result = firstEvent || "No events found for the given criteria.";
+      console.log(result);
+      const circleObject = await client.getObject({
+        id: result?.circle_id,
+        options: { showContent: true },
+      });
+      const fields = circleObject;
+      console.log("Circle Object Fields:", fields);
+let payoutexecuted  = eventsResult.data.length == 2 ? true : false;
+      await fetch("https://trust-circle-backend.onrender.com/api/contributions/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sui_object_id:circleObjectid,
+          user_address: wallet?.address,
+          tx_digest: txResult.digest,
+          round_number: currentRound,
+          payout_executed: payoutexecuted, 
+        }),
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          console.log("Contribution synced:", data);
+        });
+    } else {
+      console.log("No events found for the given criteria.");
+    }
+  }
 
   return (
     <div className="min-h-screen bg-cover bg-center  bg-no-repeat gap-y-4 items-center flex flex-col">
@@ -130,17 +213,29 @@ if (dashboard) {
                 className="bg-gray-900/60 border border-gray-700 rounded-xl p-6 flex items-center justify-between gap-6  w-full "
               >
                 <div>
-                  <h3 className="text-white text-lg font-semibold">{circle.name}</h3>
+                  <h3 className="text-white text-lg font-semibold">
+                    {circle.name}
+                  </h3>
                   <p className="mt-2 text-sm text-gray-400">
-                    <span className="text-gray-300">{ `Round ${circle.current_round} of ${circle.total_rounds}`}</span>
+                    <span className="text-gray-300">{`Round ${circle.current_round} of ${circle.total_rounds}`}</span>
                     <span className="mx-3 text-gray-500">|</span>
                     <span></span>
                   </p>
                 </div>
 
                 <div>
-                  {!circle.has_paid   ? (
-                    <button className="bg-amber-800 text-amber-50 px-4 py-2 rounded-md hover:bg-amber-700 transition flex items-center gap-2">
+                  {!circle.has_paid ? (
+                    <button
+                      className="bg-amber-800 text-amber-50 px-4 py-2 rounded-md hover:bg-amber-700 transition flex items-center gap-2"
+                      onClick={() =>
+                        excecutepayContribution(
+                          circle.contribution_amount,
+                          circle.sui_object_id,
+                          circle.current_round,
+                          circle.circle_id
+                        )
+                      }
+                    >
                       <span>Contribute now</span>
                       <span className="text-xl leading-none">→</span>
                     </button>
