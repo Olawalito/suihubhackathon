@@ -128,11 +128,10 @@ export function ConnectWallet() {
         </button>
       )}
 
-      <ConnectModal
-        trigger={<></>}
-        open={connectModalOpen}
-        onOpenChange={setConnectModalOpen}
-      />
+     <ConnectModal
+    open={connectModalOpen}
+    onOpenChange={setConnectModalOpen}
+/>
     </>
   );
 }
