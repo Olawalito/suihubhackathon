@@ -12,42 +12,21 @@ interface DashboardCardProps {
   iconType?: "active" | "time" |"give"; // for future extensibility
 }
 
-/**
- * DashboardCard
- * - standalone, framework-agnostic React + TypeScript component
- * - purely inline styles so it can be dropped into a new file without extra CSS
- *
- * Usage:
- * <DashboardCard />
- * or
- * <DashboardCard title="Active Circles" count={4} unit="Circles" subtitle="Next contribution in 20 hours" />
- */
+
 
 const DashboardCard: React.FC<DashboardCardProps> = ({
   title = "Active Circles",
   count = 4,
   unit = "Circles",
   subtitle = "Next contribution in 20 hours",
-  className,
+  
   iconType = "active",
 }) => {
   return (
     <div
-      className={className}
-      style={{
-        background: "#0f0f10",
-        color: "white",
-        borderRadius: 18,
-        padding: 24,
-        width: 760,
-
-        boxSizing: "border-box",
-        fontFamily:
-          '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial',
-        boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
-      }}
+        className={` bg-[#0f0f10] text-white rounded-[18px] p-6 w-80 box-border font-sans shadow-[0_2px_8px_rgba(0,0,0,0.4)]`}
     >
-      {/* Top row: icon + title */}
+       
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <div
           aria-hidden={true}
@@ -94,15 +73,15 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
         <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
           <div
             style={{
-              fontSize: 48,
-              fontWeight: 700,
+              fontSize: 28,
+              fontWeight: 500,
               lineHeight: 1,
               letterSpacing: "-0.02em",
             }}
           >
-            {count}
+            {count + " " + unit}
           </div>
-          <div style={{ fontSize: 22, opacity: 0.9 }}>{unit}</div>
+         
         </div>
 
         <div
