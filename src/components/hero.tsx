@@ -1,6 +1,4 @@
 import spark from "../assets/spark.png";
-import sparkle1 from "../assets/sparkle1.png";
-import sparkle2 from "../assets/sparkle2.png";
 
 export default function Hero() {
   return (

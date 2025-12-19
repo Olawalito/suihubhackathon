@@ -9,7 +9,7 @@ import {
 } from "@mysten/dapp-kit";
 import { upsertUser, createCircle, addWallet } from "./helpers";
 import { Transaction } from "@mysten/sui/transactions";
-import { PACKAGE_ID, MODULE_NAME, FUNCTION_NAME } from "../../../constant";
+import { PACKAGE_ID, MODULE_NAME, create_circle} from "../../../constant";
 
 export default function Addcircle() {
   const account = useCurrentAccount();
