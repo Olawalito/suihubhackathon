@@ -1,8 +1,34 @@
 import createicon from '../../assets/create-icon.png'
 import { useState, useEffect } from 'react'
 import React from 'react'
+import {
+  ConnectButton,
+  useSuiClient,
+  useCurrentAccount,
+  useSignAndExecuteTransaction,
+} from "@mysten/dapp-kit";
+import { upsertUser, createCircle, addWallet } from "./helpers";
+import { Transaction } from "@mysten/sui/transactions";
+import { PACKAGE_ID, MODULE_NAME, FUNCTION_NAME } from "../../../constant";
 
 export default function Addcircle() {
+  const account = useCurrentAccount();
+  const userAddress = account?.address || "";
+  const client = useSuiClient();
+  const { mutateAsync: signAndExecuteTransaction } =
+    useSignAndExecuteTransaction({
+      execute: async ({ bytes, signature }) =>
+        await client.executeTransactionBlock({
+          transactionBlock: bytes,
+          signature,
+          options: {
+            // Raw effects are required so the effects can be reported back to the wallet
+            showRawEffects: true,
+            // Select additional data to return
+            showObjectChanges: true,
+          },
+        }),
+    });
   const [isOpen, setIsOpen] = useState(false)
   const [viewCircle, setViewCircle] = useState(null)
 
@@ -15,7 +41,18 @@ export default function Addcircle() {
 
   const [addresses, setAddresses] = useState([])
   const [circles, setCircles] = useState([])
+let members = [userAddress,...addresses];
+function suiToMist(sui) {
+  const [whole, fraction = ""] = sui.toString().split(".");
+  const paddedFraction = (fraction + "000000000").slice(0, 9);
+  return (BigInt(whole) * 1_000_000_000n + BigInt(paddedFraction)).toString();
+}
 
+// Convert amount (number) to smallest unit by multiplying by 10^9 and returning as string
+const contribution = suiToMist(circleDraft.amount);
+const txb = new Transaction();
+  console.log(contribution);
+  
   /* Keep contributors count in sync */
   useEffect(() => {
     setCircleDraft((prev) => ({
@@ -24,13 +61,70 @@ export default function Addcircle() {
     }))
   }, [addresses.length])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async(e) => {
     e.preventDefault()
 
     if (addresses.length === 0) return
     if (!addresses.every((addr) => addr.trim() !== '')) return
 
     setCircles([...circles, { ...circleDraft, addresses }])
+     txb.moveCall({
+        target: `${PACKAGE_ID}::${MODULE_NAME}::${FUNCTION_NAME}`,
+        arguments: [
+          txb.pure.u64(contribution),
+          txb.pure("vector<address>",members ),
+          txb.pure("vector<address>", members),
+        ],
+      });
+      const txResult = await signAndExecuteTransaction({
+      transaction: txb,
+    });
+    await client.waitForTransaction({
+      digest: txResult.digest,
+    });
+
+    const eventsResult = await client.queryEvents({
+      query: { Transaction: txResult.digest },
+    });
+    console.log(eventsResult);
+
+    if (eventsResult.data.length > 0) {
+      const firstEvent = eventsResult.data[0]?.parsedJson;
+      const result = firstEvent || "No events found for the given criteria.";
+      console.log(result);
+      const circleObject = await client.getObject({
+        id: result?.circle_id,
+        options: { showContent: true },
+      });
+      const fields = circleObject;
+      console.log("Circle Object Fields:", fields);
+
+      
+      const res = await fetch("https://trust-circle-backend.onrender.com/api/circles/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: circleDraft.name,
+          description: "### New Circle Created via Dapp",
+          sui_object_id: result?.circle_id,
+          creator_address: result?.creator,
+          members: members,
+          contribution_amount: contribution,
+          current_round: 1,
+          total_rounds: fields?.data?.content?.fields?.total_rounds,
+          active: fields?.data?.content?.fields?.active,
+
+          payout_order: fields?.data?.content?.fields?.payout_order,
+        }),
+      });
+      console.log(res.json());
+    
+   
+      
+    } else {
+      console.log("No events found for the given criteria.");
+    }
+      
 
     setCircleDraft({
       name: '',
@@ -41,7 +135,7 @@ export default function Addcircle() {
     setAddresses([])
     setIsOpen(false)
   }
-
+console.log
   return (
     <div className="w-full mx-5 overflow-hidden">
       {/* Create Card */}

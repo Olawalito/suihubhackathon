@@ -30,3 +30,4 @@ async function addWallet(circleId: string, wallet: string) {
     body: JSON.stringify({ sui_address: wallet }),
   });
 }
+ 
