@@ -1,180 +1,167 @@
 import createicon from '../../assets/create-icon.png'
+import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react'
 import React from 'react'
 import {
-  ConnectButton,
   useSuiClient,
   useCurrentAccount,
   useSignAndExecuteTransaction,
 } from "@mysten/dapp-kit";
-import { upsertUser, createCircle, addWallet } from "./helpers";
 import { Transaction } from "@mysten/sui/transactions";
-import { PACKAGE_ID, MODULE_NAME,} from "../../../constant";
+import { PACKAGE_ID, MODULE_NAME } from "../../../constant";
 
 export default function Addcircle() {
+  const navigate = useNavigate();
   const account = useCurrentAccount();
   const userAddress = account?.address || "";
   const client = useSuiClient();
-  const { mutateAsync: signAndExecuteTransaction } =
-    useSignAndExecuteTransaction({
-      execute: async ({ bytes, signature }) =>
-        await client.executeTransactionBlock({
-          transactionBlock: bytes,
-          signature,
-          options: {
-            // Raw effects are required so the effects can be reported back to the wallet
-            showRawEffects: true,
-            // Select additional data to return
-            showObjectChanges: true,
-          },
-        }),
-    });
-  const [isOpen, setIsOpen] = useState(false)
-  const [viewCircle, setViewCircle] = useState(null)
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [viewCircle, setViewCircle] = useState(null);
 
   const [circleDraft, setCircleDraft] = useState({
     name: '',
     amount: '',
     contributors: 0,
     frequency: 'weekly',
-  })
+  });
 
-  const [addresses, setAddresses] = useState([])
-  const [circles, setCircles] = useState([])
-let members = [userAddress,...addresses];
-function suiToMist(sui) {
-  const [whole, fraction = ""] = sui.toString().split(".");
-  const paddedFraction = (fraction + "000000000").slice(0, 9);
-  return (BigInt(whole) * 1_000_000_000n + BigInt(paddedFraction)).toString();
-}
-
-// Convert amount (number) to smallest unit by multiplying by 10^9 and returning as string
-const contribution = suiToMist(circleDraft.amount);
-const txb = new Transaction();
-  console.log(contribution);
+  const [addresses, setAddresses] = useState([]);
+  const [circles, setCircles] = useState([]); // This stores your created cards
   
-  /* Keep contributors count in sync */
+  let members = [userAddress, ...addresses];
+
+  function suiToMist(sui) {
+    if (!sui) return "0";
+    const [whole, fraction = ""] = sui.toString().split(".");
+    const paddedFraction = (fraction + "000000000").slice(0, 9);
+    return (BigInt(whole) * 1_000_000_000n + BigInt(paddedFraction)).toString();
+  }
+
   useEffect(() => {
     setCircleDraft((prev) => ({
       ...prev,
-      contributors: addresses.length,
-    }))
-  }, [addresses.length])
+      contributors: members.length,
+    }));
+  }, [addresses.length]);
 
-  const handleSubmit = async(e) => {
-    e.preventDefault()
+  const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction({
+    execute: async ({ bytes, signature }) =>
+      await client.executeTransactionBlock({
+        transactionBlock: bytes,
+        signature,
+        options: {
+          showRawEffects: true,
+          showObjectChanges: true,
+        },
+      }),
+  });
 
-    if (addresses.length === 0) return
-    if (!addresses.every((addr) => addr.trim() !== '')) return
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (addresses.length === 0 || !addresses.every((addr) => addr.trim() !== '')) return;
 
-    setCircles([...circles, { ...circleDraft, addresses }])
-     txb.moveCall({
+    setIsLoading(true);
+
+    try {
+      const contribution = suiToMist(circleDraft.amount);
+      const txb = new Transaction();
+
+      txb.moveCall({
         target: `${PACKAGE_ID}::${MODULE_NAME}::create_circle`,
         arguments: [
           txb.pure.u64(contribution),
-          txb.pure("vector<address>",members ),
+          txb.pure("vector<address>", members),
           txb.pure("vector<address>", members),
         ],
       });
-      const txResult = await signAndExecuteTransaction({
-      transaction: txb,
-    });
-    await client.waitForTransaction({
-      digest: txResult.digest,
-    });
 
-    const eventsResult = await client.queryEvents({
-      query: { Transaction: txResult.digest },
-    });
-    console.log(eventsResult);
+      const txResult = await signAndExecuteTransaction({ transaction: txb });
+      await client.waitForTransaction({ digest: txResult.digest });
 
-    if (eventsResult.data.length > 0) {
-      const firstEvent = eventsResult.data[0]?.parsedJson;
-      const result = firstEvent || "No events found for the given criteria.";
-      console.log(result);
-      const circleObject = await client.getObject({
-        id: result?.circle_id,
-        options: { showContent: true },
+      const eventsResult = await client.queryEvents({
+        query: { Transaction: txResult.digest },
       });
-      const fields = circleObject;
-      console.log("Circle Object Fields:", fields);
 
-      
-      const res = await fetch("https://trust-circle-backend.onrender.com/api/circles/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: circleDraft.name,
-          description: "### New Circle Created via Dapp",
-          sui_object_id: result?.circle_id,
-          creator_address: result?.creator,
-          members: members,
-          contribution_amount: contribution,
-          current_round: 1,
-          total_rounds: fields?.data?.content?.fields?.total_rounds,
-          active: fields?.data?.content?.fields?.active,
+      if (eventsResult.data.length > 0) {
+        const firstEvent = eventsResult.data[0]?.parsedJson;
+        
+        const circleObject = await client.getObject({
+          id: firstEvent?.circle_id,
+          options: { showContent: true },
+        });
 
-          payout_order: fields?.data?.content?.fields?.payout_order,
-        }),
-      });
-      console.log(res.json());
-    
-   
-      
-    } else {
-      console.log("No events found for the given criteria.");
+        const fields = circleObject?.data?.content?.fields;
+
+        // 1. Add to local state so the card shows up immediately
+        setCircles([...circles, { ...circleDraft, addresses }]);
+
+        const res = await fetch("https://trust-circle-backend.onrender.com/api/circles/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: circleDraft.name,
+            description: "### New Circle Created via Dapp",
+            sui_object_id: firstEvent?.circle_id,
+            creator_address: firstEvent?.creator,
+            members: members,
+            contribution_amount: contribution,
+            current_round: 1,
+            total_rounds: fields?.total_rounds,
+            active: fields?.active,
+            payout_order: fields?.payout_order,
+          }),
+        });
+
+        if (res.ok) {
+          setCircleDraft({ name: '', amount: '', contributors: 0, frequency: 'weekly' });
+          setAddresses([]);
+          setIsOpen(false);
+          // Redirect to the list of circles
+          navigate('/mycircle');
+        }
+      }
+    } catch (error) {
+      console.error("Submission failed:", error);
+    } finally {
+      setIsLoading(false);
     }
-      
-
-    setCircleDraft({
-      name: '',
-      amount: '',
-      contributors: 0,
-      frequency: 'weekly',
-    })
-    setAddresses([])
-    setIsOpen(false)
   }
-console.log
+
   return (
     <div className="w-full mx-5 overflow-hidden">
-      {/* Create Card */}
+      {/* Create Card Header */}
       <div className="mx-auto flex items-center justify-between gap-3 text-white p-6 bg-[#111111B2] rounded-2xl flex-wrap">
         <div className="flex gap-2 items-start">
           <img src={createicon} alt="create-icon" className="w-5 h-5 mt-1 shrink-0" />
           <div>
-            <h1 className="text-base font-semibold whitespace-nowrap">
-              Create a new circle
-            </h1>
-            <p className="text-xs text-white/70 whitespace-nowrap">
-              Start a new saving circle with your trusted groups
-            </p>
+            <h1 className="text-base font-semibold whitespace-nowrap">Create a new circle</h1>
+            <p className="text-xs text-white/70 whitespace-nowrap">Start a new saving circle with your trusted groups</p>
           </div>
         </div>
-
         <button
           onClick={() => setIsOpen(true)}
-          className="shrink-0 bg-[linear-gradient(180deg,#FC5016_0%,#FF8961_100%)]
-                     px-4 py-2 rounded-3xl text-sm font-medium"
+          className="shrink-0 bg-[linear-gradient(180deg,#FC5016_0%,#FF8961_100%)] px-4 py-2 rounded-3xl text-sm font-medium"
         >
           Create a circle
         </button>
       </div>
 
-      {/* Circle Cards */}
+      {/* RESTORED: Circle Cards Grid */}
       <div className="mt-6 grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
         {circles.map((circle, idx) => (
-          <div key={idx} className="bg-[#111] p-4 rounded-lg text-white">
+          <div key={idx} className="bg-[#111] p-4 rounded-lg text-white border border-white/5">
             <h2 className="font-semibold text-lg">{circle.name || 'Untitled Circle'}</h2>
-            <p>Amount: {circle.amount} SUI</p>
-            <p>Frequency: {circle.frequency}</p>
-            <p>Members: {circle.contributors}</p>
+            <p className="text-sm text-white/60">Amount: {circle.amount} SUI</p>
+            <p className="text-sm text-white/60">Frequency: {circle.frequency}</p>
+            <p className="text-sm text-white/60">Members: {circle.contributors}</p>
 
             <button
               onClick={() => setViewCircle(circle)}
-              className="mt-2 bg-orange-500 px-3 py-1 rounded"
+              className="mt-3 bg-orange-600 hover:bg-orange-700 transition-colors px-4 py-1.5 rounded text-sm font-medium"
             >
-              View
+              View Details
             </button>
           </div>
         ))}
@@ -182,176 +169,98 @@ console.log
 
       {/* CREATE MODAL */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md
-                        grid place-items-center overflow-y-auto px-4">
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md grid place-items-center overflow-y-auto px-4">
           <form
             onSubmit={handleSubmit}
-            className="w-full max-w-lg max-h-[90vh] overflow-y-auto
-                       rounded-3xl bg-gradient-to-br
-                       from-[#1b1b1b] via-[#0f0f0f] to-[#1a0b05]
-                       border border-white/10 p-6 text-white shadow-2xl"
+            className="w-full max-w-lg rounded-3xl bg-gradient-to-br from-[#1b1b1b] via-[#0f0f0f] to-[#1a0b05] border border-white/10 p-6 text-white shadow-2xl"
           >
-            {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Create Circle</h2>
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="text-white/60 hover:text-white text-xl"
-              >
-                ✕
-              </button>
+              <button type="button" onClick={() => setIsOpen(false)} className="text-white/60 hover:text-white">✕</button>
             </div>
-
-            <p className="text-sm text-orange-400 mb-6">
-              These rules cannot be changed after creation.
-            </p>
-        <div className="mb-4">
-              <label className="text-xs text-white/60 mb-1 block">
-                Circle Name
-              </label>
-              <div className="flex items-center bg-black/40 rounded-xl px-4 py-3 border border-white/10">
+            
+            <div className="space-y-4 mb-6">
                 <input
                   type="text"
+                  placeholder="Circle Name"
                   value={circleDraft.name}
-                  onChange={(e) =>
-                    setCircleDraft({ ...circleDraft, name: e.target.value})
-                  }
-                  className="bg-transparent outline-none w-full text-sm"
-                  placeholder=""
+                  onChange={(e) => setCircleDraft({ ...circleDraft, name: e.target.value })}
+                  className="w-full bg-black/40 rounded-xl px-4 py-3 border border-white/10 outline-none text-sm"
                   required
                 />
-              </div>
-            </div>
-            {/* Contribution Amount */}
-            <div className="mb-4">
-              <label className="text-xs text-white/60 mb-1 block">
-                Contribution Amount
-              </label>
-              <div className="flex items-center bg-black/40 rounded-xl px-4 py-3 border border-white/10">
                 <input
                   type="number"
+                  placeholder="Amount (SUI)"
                   value={circleDraft.amount}
-                  onChange={(e) =>
-                    setCircleDraft({ ...circleDraft, amount: Number(e.target.value) })
-                  }
-                  className="bg-transparent outline-none w-full text-sm"
-                  placeholder="1"
+                  onChange={(e) => setCircleDraft({ ...circleDraft, amount: e.target.value })}
+                  className="w-full bg-black/40 rounded-xl px-4 py-3 border border-white/10 outline-none text-sm"
                   required
                 />
-                <span className="text-white/60 text-sm">SUI</span>
-              </div>
-            </div>
-
-            {/* Frequency Dropdown */}
-            <div className="mb-4">
-              <label className="text-xs text-white/60 mb-1 block">
-                Contribution Frequency
-              </label>
-              <select
-                value={circleDraft.frequency}
-                onChange={(e) =>
-                  setCircleDraft({ ...circleDraft, frequency: e.target.value })
-                }
-                className="w-full bg-black/40 rounded-xl px-4 py-3
-                           border border-white/10 text-sm outline-none"
-              >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-              </select>
-            </div>
-
-            {/* Members */}
-            <div className="mb-4">
-              <label className="text-xs text-white/60 mb-2 block">
-                Members ({addresses.length})
-              </label>
-
-              {addresses.map((address, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-2 bg-black/40
-                             border border-white/10 rounded-xl px-3 py-2 mb-2"
-                >
-                  <input
-                    type="text"
-                    value={address}
-                    onChange={(e) => {
-                      const next = [...addresses]
-                      next[idx] = e.target.value
-                      setAddresses(next)
-                    }}
-                    placeholder={`0x... member ${idx + 1}`}
-                    className="bg-transparent outline-none w-full text-sm"
-                    required
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setAddresses(addresses.filter((_, i) => i !== idx))
-                    }
-                    className="text-red-400 text-xs hover:text-red-500"
-                  >
-                    ✕
-                  </button>
+                
+                <div>
+                  <label className="text-xs text-white/60 mb-2 block">Members ({addresses.length})</label>
+                  {addresses.map((address, idx) => (
+                    <div key={idx} className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={address}
+                        onChange={(e) => {
+                          const next = [...addresses];
+                          next[idx] = e.target.value;
+                          setAddresses(next);
+                        }}
+                        placeholder="0x..."
+                        className="flex-1 bg-black/40 rounded-xl px-3 py-2 border border-white/10 text-xs"
+                        required
+                      />
+                      <button type="button" onClick={() => setAddresses(addresses.filter((_, i) => i !== idx))} className="text-red-400">✕</button>
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setAddresses([...addresses, ''])} className="text-xs text-orange-400">+ Add Member</button>
                 </div>
-              ))}
-
-              <button
-                type="button"
-                onClick={() => setAddresses([...addresses, ''])}
-                className="text-sm text-white/70 hover:text-white mt-2"
-              >
-                + Add Member
-              </button>
             </div>
 
-            {/* Gas Fee */}
-            <div className="text-sm text-white/60 mb-6">
-              Gas Fee: <span className="text-white">0.03 SUI</span>
-              <div className="text-xs text-white/40">
-                Estimated based on current network conditions.
-              </div>
-            </div>
-
-            {/* CTA */}
             <button
               type="submit"
-              onClick={}
-              className="w-full rounded-xl py-3 font-semibold
-                         bg-gradient-to-r from-orange-400 to-orange-600
-                         hover:from-orange-500 hover:to-orange-700
-                         shadow-lg shadow-orange-500/30"
+              disabled={isLoading}
+              className={`w-full rounded-xl py-3 font-semibold ${
+                isLoading ? "bg-gray-700 cursor-not-allowed" : "bg-gradient-to-r from-orange-500 to-orange-700"
+              }`}
             >
-              Create Circle
+              {isLoading ? "Processing..." : "Create Circle"}
             </button>
           </form>
         </div>
       )}
 
-      {/* VIEW MODAL */}
+      {/* RESTORED: VIEW MODAL */}
       {viewCircle && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center">
-          <div className="bg-[#111111B2] p-6 rounded-2xl text-white
-                w-full max-w-2xl mx-5
-">
-            <h1 className="font-semibold text-lg mb-2">Circle Details</h1>
-            <p className='my-4'>Amount: {viewCircle.amount} SUI</p>
-            <p className='my-4'>Frequency: {viewCircle.frequency}</p>
-            <p className='my-4'>Members: {viewCircle.contributors}</p>
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-[#111] p-6 rounded-2xl text-white w-full max-w-2xl mx-5 border border-white/10 shadow-2xl">
+            <h1 className="font-semibold text-xl mb-4 text-orange-500">Circle Details</h1>
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-white/5 p-3 rounded-lg">
+                <p className="text-xs text-white/40">Amount</p>
+                <p className="text-lg font-medium">{viewCircle.amount} SUI</p>
+              </div>
+              <div className="bg-white/5 p-3 rounded-lg">
+                <p className="text-xs text-white/40">Frequency</p>
+                <p className="text-lg font-medium capitalize">{viewCircle.frequency}</p>
+              </div>
+            </div>
 
-            <h2 className="mt-4 font-semibold">Addresses</h2>
-            {viewCircle.addresses.map((addr, idx) => (
-              <p key={idx} className="text-xs bg-[#222] p-1 rounded my-1">
-                {addr}
-              </p>
-            ))}
+            <h2 className="font-semibold text-sm mb-2 text-white/60">Participating Addresses</h2>
+            <div className="max-h-40 overflow-y-auto space-y-1">
+              {viewCircle.addresses?.map((addr, idx) => (
+                <p key={idx} className="text-[10px] font-mono bg-black/50 p-2 rounded border border-white/5 break-all">
+                  {addr}
+                </p>
+              ))}
+            </div>
 
             <button
               onClick={() => setViewCircle(null)}
-              className="mt-4 bg-black px-4 py-2 rounded-2xl"
+              className="mt-6 w-full bg-white/10 hover:bg-white/20 transition-colors py-2 rounded-xl text-sm"
             >
               Close
             </button>
