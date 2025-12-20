@@ -1,7 +1,7 @@
 import DashboardHeader from '../components/dashboard/DashboardHeader'
 import Footer from '../components/footer';
 import bgGradient from '../assets/bg-gradient.png'
-import Activitycards from '../components/Activity/activitycards';
+import Activitycards from '../components/Activity/ActivityCards'
 
 function Activity() {
   return (
