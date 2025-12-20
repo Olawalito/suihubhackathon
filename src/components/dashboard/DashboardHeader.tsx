@@ -1,19 +1,16 @@
-import { useState } from "react";
+import { useState, MouseEvent } from "react";
 import logo from "../../assets/logo.png";
 import logo2 from "../../assets/logo_2.png";
 import hamburger from "../../assets/hamburger.png";
 import { ConnectWallet } from "../connectButton";
+import { useNavigate, useLocation } from "react-router";
+
 export default function DashboardHeader() {
-  const [activeLink, setActiveLink] = useState("home");
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleNavClick = (e, targetId) => {
-    e.preventDefault();
-    setActiveLink(targetId);
-
-    const section = document.getElementById(targetId);
-    if (section) {
-      section.scrollIntoView({ behavior: "smooth" });
-    }
+  const handleNavClick = (path: string) => {
+    navigate(path);
   };
 
   // start closed on mobile
@@ -21,17 +18,15 @@ export default function DashboardHeader() {
   const toggleMenu = () => {
     setIsOpen(!isOpen);
   };
-  const navClassName = ``;
   const links = [
-    { id: "Dashboard", label: "Dashboard" },
-    { id: "My circle", label: "About" },
-    { id: "Activity", label: "Security" },
-    { id: "Docs", label: "Docs" },
+    { id: "Dashboard", label: "Dashboard", path: "/dashboard" },
+    { id: "My-circle", label: "My Circle", path: "/Mycircle" },
+    { id: "Activity", label: "Activity", path: "/activity" },
   ];
   return (
     <header className="w-full px-4 md:px-8 py-4 md:py-6">
       <div className="max-w-7xl mx-auto  flex items-center bg-[#FFFFFF2B] sm:bg-transparent justify-between gap-4  rounded-[90px] sm:rounded-none">
-        <div className="invisible sm:visible sm:flex-1">
+        <div className="hidden sm:flex sm:flex-1">
           <img
             src={logo}
             alt="trust-circle logo"
@@ -41,19 +36,22 @@ export default function DashboardHeader() {
         <img
           src={logo2}
           alt="trust-circle logo"
-          className="w-10 md:w-36 h-auto object-contain shrink-0 sm:hidden -ml-67 "
+          className="w-10 md:w-36 h-auto object-contain shrink-0 sm:hidden"
         />
 
         {/* Desktop nav */}
-        <nav className="hidden sm:flex items-center gap-6 flex-2 justify-between ">
+        <nav className="hidden sm:flex items-center gap-6 flex-[2] justify-between ">
           <ul className="flex items-center gap-6 bg-transparent text-white">
             {links.map((link) => (
               <a
                 key={link.id}
-                href={`#${link.id}`}
-                onClick={(e) => handleNavClick(e, link.id)}
+                href={link.path}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNavClick(link.path);
+                }}
                 className={`text-xs sm:text-sm md:text-base whitespace-nowrap px-4 py-2 rounded-[90px] transition-colors ${
-                  activeLink === link.id
+                  location.pathname === link.path
                     ? "bg-[linear-gradient(181.71deg,#373737_-39.78%,#FF9B7D_-8.23%,#FF3E00_106.05%)] text-white"
                     : "bg-transparent text-white"
                 }`}
@@ -104,12 +102,17 @@ export default function DashboardHeader() {
           {links.map((link) => (
             <a
               key={link.id}
-              href={`#${link.id}`}
+              href={link.path}
               onClick={(e) => {
-                handleNavClick(e, link.id);
+                e.preventDefault();
+                handleNavClick(link.path);
                 setIsOpen(false);
               }}
-              className="block text-sm w-full text-left px-3 py-2 rounded-[20px] transition-colors "
+              className={`block text-sm w-full text-left px-3 py-2 rounded-[20px] transition-colors ${
+                location.pathname === link.path
+                  ? "bg-[linear-gradient(181.71deg,#373737_-39.78%,#FF9B7D_-8.23%,#FF3E00_106.05%)] text-white"
+                  : "bg-transparent text-white"
+              }`}
             >
               {link.label}
             </a>

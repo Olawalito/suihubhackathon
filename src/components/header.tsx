@@ -24,10 +24,9 @@ export default function Header() {
   };
   const navClassName = ``;
   const links = [
-    { id: "home", label: "Home" },
-    { id: "About", label: "About" },
-    { id: "Security", label: "Security" },
-    { id: "Docs", label: "Docs" },
+    { id: "Dashboard", label: "Dashboard" },
+    { id: "My-circle", label: "My Circle" },
+    { id: "Activity", label: "Activity" },
   ];
 
   return (
