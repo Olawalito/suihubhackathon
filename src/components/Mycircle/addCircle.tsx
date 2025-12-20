@@ -23,14 +23,16 @@ export default function Addcircle() {
   const [circleDraft, setCircleDraft] = useState({
     name: '',
     amount: '',
+    status: true,
     contributors: 0,
     frequency: 'weekly',
   });
 
   const [addresses, setAddresses] = useState([]);
   const [circles, setCircles] = useState([]); // This stores your created cards
+  const [isLoaded, setIsLoaded] = useState(false);
   
-  let members = [userAddress, ...addresses];
+  let members = [userAddress, ...addresses.map(m => m.address)];
 
   function suiToMist(sui) {
     if (!sui) return "0";
@@ -46,6 +48,27 @@ export default function Addcircle() {
     }));
   }, [addresses.length]);
 
+  // Load circles from local storage when user connects
+  useEffect(() => {
+    if (userAddress) {
+      const saved = localStorage.getItem(`circles_${userAddress}`);
+      if (saved) {
+        setCircles(JSON.parse(saved));
+      }
+      setIsLoaded(true);
+    } else {
+      setCircles([]);
+      setIsLoaded(false);
+    }
+  }, [userAddress]);
+
+  // Save circles to local storage whenever they change
+  useEffect(() => {
+    if (isLoaded && userAddress) {
+      localStorage.setItem(`circles_${userAddress}`, JSON.stringify(circles));
+    }
+  }, [circles, userAddress, isLoaded]);
+
   const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction({
     execute: async ({ bytes, signature }) =>
       await client.executeTransactionBlock({
@@ -60,7 +83,7 @@ export default function Addcircle() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (addresses.length === 0 || !addresses.every((addr) => addr.trim() !== '')) return;
+    if (addresses.length === 0 || !addresses.every((m) => m.address.trim() !== '')) return;
 
     setIsLoading(true);
 
@@ -95,7 +118,7 @@ export default function Addcircle() {
         const fields = circleObject?.data?.content?.fields;
 
         // 1. Add to local state so the card shows up immediately
-        setCircles([...circles, { ...circleDraft, addresses }]);
+        setCircles([...circles, { ...circleDraft, addresses, total_rounds: fields?.total_rounds, current_round: 1 }]);
 
         const res = await fetch("https://trust-circle-backend.onrender.com/api/circles/sync", {
           method: "POST",
@@ -153,12 +176,13 @@ export default function Addcircle() {
         {circles.map((circle, idx) => (
           <div key={idx} className="bg-[#111] p-4 rounded-lg text-white border border-white/5">
             <h2 className="font-semibold text-lg">{circle.name || 'Untitled Circle'}</h2>
+            <span>Status: <span className={`w-4 h-4 rounded-full inline-block ml-2 ${circle.status ? 'bg-green-500' : 'bg-gray-500'}`} /></span>
             <p className="text-sm text-white/60">Amount: {circle.amount} SUI</p>
             <p className="text-sm text-white/60">Frequency: {circle.frequency}</p>
             <p className="text-sm text-white/60">Members: {circle.contributors}</p>
 
             <button
-              onClick={() => setViewCircle(circle)}
+              onClick={() => navigate('/circleactivity', { state: { circle } })}
               className="mt-3 bg-orange-600 hover:bg-orange-700 transition-colors px-4 py-1.5 rounded text-sm font-medium"
             >
               View Details
@@ -199,24 +223,35 @@ export default function Addcircle() {
                 
                 <div>
                   <label className="text-xs text-white/60 mb-2 block">Members ({addresses.length})</label>
-                  {addresses.map((address, idx) => (
+                  {addresses.map((member, idx) => (
                     <div key={idx} className="flex gap-2 mb-2">
-                      <input
-                        type="text"
-                        value={address}
+                      <input 
+                        type="text" 
+                        className="flex-1 bg-black/40 rounded-xl px-3 py-2 border border-white/10 text-xs" 
+                        placeholder='Enter Name...' 
+                        value={member.name}
                         onChange={(e) => {
                           const next = [...addresses];
-                          next[idx] = e.target.value;
+                          next[idx] = { ...next[idx], name: e.target.value };
                           setAddresses(next);
                         }}
-                        placeholder="0x..."
+                      />
+                      <input
+                        type="text"
+                        value={member.address}
+                        onChange={(e) => {
+                          const next = [...addresses];
+                          next[idx] = { ...next[idx], address: e.target.value };
+                          setAddresses(next);
+                        }}
+                        placeholder="Enter address 0x..."
                         className="flex-1 bg-black/40 rounded-xl px-3 py-2 border border-white/10 text-xs"
                         required
                       />
                       <button type="button" onClick={() => setAddresses(addresses.filter((_, i) => i !== idx))} className="text-red-400">✕</button>
                     </div>
                   ))}
-                  <button type="button" onClick={() => setAddresses([...addresses, ''])} className="text-xs text-orange-400">+ Add Member</button>
+                  <button type="button" onClick={() => setAddresses([...addresses, { name: '', address: '' }])} className="text-xs text-orange-400">+ Add Member</button>
                 </div>
             </div>
 
@@ -251,10 +286,11 @@ export default function Addcircle() {
 
             <h2 className="font-semibold text-sm mb-2 text-white/60">Participating Addresses</h2>
             <div className="max-h-40 overflow-y-auto space-y-1">
-              {viewCircle.addresses?.map((addr, idx) => (
-                <p key={idx} className="text-[10px] font-mono bg-black/50 p-2 rounded border border-white/5 break-all">
-                  {addr}
-                </p>
+              {viewCircle.addresses?.map((member, idx) => (
+                <div key={idx} className="bg-black/50 p-2 rounded border border-white/5 break-all">
+                  <p className="text-xs font-semibold text-white/80">{member.name || 'Unknown'}</p>
+                  <p className="text-[10px] font-mono text-white/60">{member.address}</p>
+                </div>
               ))}
             </div>
 
