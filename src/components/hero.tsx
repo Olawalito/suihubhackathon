@@ -1,6 +1,9 @@
 import spark from "../assets/spark.png";
+import { useNavigate } from 'react-router-dom';
 
 export default function Hero() {
+  const navigate = useNavigate();
+
   return (
     <>
       <div className="text-white flex flex-col items-center justify-center text-center space-y-10 ">
@@ -25,15 +28,13 @@ export default function Hero() {
         </div>
         <div className=" flex gap-x-10  flex-col sm:flex-row">
           <button
+          onClick={() => navigate('/dashboard')}
             className="bg-[linear-gradient(181.71deg,#373737_-39.78%,#FF9B7D_-8.23%,#FF3E00_106.05%)] w-40 rounded-[100px] py-2 px-2 shadow-[inset_0px_-2px_2px_0px_rgba(255,255,255,0.5)]
 ]"
           >
             Start Saving Today
           </button>
-          <button className="bg-white text-black shadow-[inset_0px_0px_16px_0px_rgba(255,255,255,0.5)] rounded-[100px] py-2 px-6 invisible sm:visible ">
-            {" "}
-            Watch Demo
-          </button>
+          
         </div>
       </div>
     </>

@@ -9,7 +9,7 @@ import {
 } from "@mysten/dapp-kit";
 import { upsertUser, createCircle, addWallet } from "./helpers";
 import { Transaction } from "@mysten/sui/transactions";
-import { PACKAGE_ID, MODULE_NAME, create_circle} from "../../../constant";
+import { PACKAGE_ID, MODULE_NAME,} from "../../../constant";
 
 export default function Addcircle() {
   const account = useCurrentAccount();
@@ -69,7 +69,7 @@ const txb = new Transaction();
 
     setCircles([...circles, { ...circleDraft, addresses }])
      txb.moveCall({
-        target: `${PACKAGE_ID}::${MODULE_NAME}::${FUNCTION_NAME}`,
+        target: `${PACKAGE_ID}::${MODULE_NAME}::create_circle`,
         arguments: [
           txb.pure.u64(contribution),
           txb.pure("vector<address>",members ),
@@ -319,6 +319,7 @@ console.log
             {/* CTA */}
             <button
               type="submit"
+              onClick={}
               className="w-full rounded-xl py-3 font-semibold
                          bg-gradient-to-r from-orange-400 to-orange-600
                          hover:from-orange-500 hover:to-orange-700
