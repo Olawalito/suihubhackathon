@@ -32,7 +32,8 @@ export default function Addcircle() {
   const [circles, setCircles] = useState([]); // This stores your created cards
   const [isLoaded, setIsLoaded] = useState(false);
   
-  let members = [userAddress, ...addresses.map(m => m.address)];
+  const uniqueAddresses = addresses.filter(m => m.address !== userAddress);
+  let members = [userAddress, ...uniqueAddresses.map(m => m.address)];
 
   function suiToMist(sui) {
     if (!sui) return "0";
@@ -83,7 +84,7 @@ export default function Addcircle() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (addresses.length === 0 || !addresses.every((m) => m.address.trim() !== '')) return;
+    if (!addresses.every((m) => m.address.trim() !== '')) return;
 
     setIsLoading(true);
 
@@ -118,7 +119,14 @@ export default function Addcircle() {
         const fields = circleObject?.data?.content?.fields;
 
         // 1. Add to local state so the card shows up immediately
-        setCircles([...circles, { ...circleDraft, addresses, total_rounds: fields?.total_rounds, current_round: 1 }]);
+        const allMembers = [{ name: 'You', address: userAddress }, ...uniqueAddresses];
+        setCircles([...circles, { 
+          ...circleDraft, 
+          addresses: allMembers, 
+          contributors: allMembers.length,
+          total_rounds: fields?.total_rounds, 
+          current_round: 1 
+        }]);
 
         const res = await fetch("https://trust-circle-backend.onrender.com/api/circles/sync", {
           method: "POST",

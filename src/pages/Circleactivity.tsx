@@ -1,6 +1,7 @@
 import bgGradient from '../assets/bg-gradient.png'
 import logo from '../assets/logo.png'
 import { useLocation } from 'react-router-dom';
+import Activitycards from '../components/Activity/Activitycards';
 
 export default function Circleactivity (){
     const location = useLocation();
@@ -18,8 +19,8 @@ export default function Circleactivity (){
                 <h1 className='my-8'>Total number of rounds: <span className="text-orange-500 font-bold">{circle?.total_rounds || 'N/A'}</span></h1>
                 <h2 className='my-8'>Current round: <span className="text-orange-500 font-bold">{circle?.current_round || 'N/A'}</span></h2>
 
-                <h1 className=' text-2xl font-'>
-                    Members:
+                <h1 className=' text-2xl font-semibold'>
+                    Members ({circle?.addresses?.length || 0}):
                 </h1>
                 {circle?.addresses?.map((member: any, idx: number) => (
                     <div key={idx} className="border-b border-white/10 pb-4 mb-4">
@@ -27,6 +28,9 @@ export default function Circleactivity (){
                         <p className='my-4 break-all'>Address: <span className="text-gray-300 font-mono text-sm">{member.address}</span></p>
                     </div>
                 ))}
+
+                <h1 className='text-2xl font-semibold mt-12 mb-6'>Recent Activities</h1>
+                <Activitycards />
             </div>
             </div>
         </div>
