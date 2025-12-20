@@ -60,7 +60,7 @@ function Payout(){
     )
 };
 
-export default function Activitycards() {
+export default function ActivityCards() {
     return (
         (
             <div className=' flex flex-col'>

@@ -1,7 +1,7 @@
 import bgGradient from '../assets/bg-gradient.png'
 import logo from '../assets/logo.png'
 import { useLocation } from 'react-router-dom';
-import Activitycards from '../components/Activity/Activitycards';
+import ActivityCards from '../components/Activity/ActivityCards';
 
 export default function Circleactivity (){
     const location = useLocation();
@@ -30,7 +30,7 @@ export default function Circleactivity (){
                 ))}
 
                 <h1 className='text-2xl font-semibold mt-12 mb-6'>Recent Activities</h1>
-                <Activitycards />
+                <ActivityCards />
             </div>
             </div>
         </div>
