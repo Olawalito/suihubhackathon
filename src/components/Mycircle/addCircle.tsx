@@ -129,7 +129,7 @@ export default function Addcircle() {
         }]);
         console.log(allMembers)
        console.log(members)
-        const res = await fetch("http://localhost:3000/api/circles/sync", {
+        const res = await fetch("https://trust-circle-backend.onrender.com/api/circles/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
