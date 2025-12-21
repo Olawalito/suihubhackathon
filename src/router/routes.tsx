@@ -2,7 +2,8 @@ import { createBrowserRouter } from 'react-router-dom';
 import Home from '../pages/Home';
 import Dashboard from '../components/dashboard/Dashboard';
 import Mycircle from '../pages/Mycircle';
-import Activity from '../pages/Activity';
+
+import ActivityPage from '../pages/ActivityPage';
 import Circleactivity from '../pages/Circleactivity';
 
 
@@ -21,7 +22,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/activity',
-    element: <Activity />,
+    element: <ActivityPage />,
   },
   {
     path: '/circle/:circleId',
