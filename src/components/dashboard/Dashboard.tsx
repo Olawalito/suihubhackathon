@@ -1,150 +1,114 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import DashboardHeader from "./DashboardHeader";
+import DashboardCard from "./DashboardCard";
+import DashboardCardSkeleton from "../loader/DashboardCardSkeleton";
+import CircleRowSkeleton from "../loader/CircleRowSkeleton";
+import { NavLink } from "react-router";
+import { toast } from "react-toastify";
 import {
-  ConnectButton,
-  useSuiClient,
   useCurrentAccount,
+  useSuiClient,
   useSignAndExecuteTransaction,
 } from "@mysten/dapp-kit";
-import { upsertUser, createCircle, addWallet } from "./helpers";
 import { Transaction } from "@mysten/sui/transactions";
 import { PACKAGE_ID, MODULE_NAME } from "../../../constant";
 
-import DashboardCard from "./DashboardCard";
-
-type IconType = "active" | "time" | "give";
+/* ---------------- TYPES ---------------- */
 
 interface Circle {
   circle_id: string;
+  sui_object_id: string;
   name: string;
-  total?: number | string;
-  curent_round: number;
+  current_round: number;
   total_rounds: number;
+  contribution_amount: number;
   has_paid: boolean;
 }
 
 interface DashboardResponse {
   circles: Circle[];
   next_payout: {
-    total_next_payout: number;
     payout_amount: number;
     name: string;
-  };
+  } | null;
   next_contribution: {
     total: number;
-  };
+  } | null;
 }
 
+/* ---------------- UTILS ---------------- */
+
+const mistToSui = (mist?: number | null) => {
+  const n = Number(mist ?? 0);
+  return (n / 1_000_000_000).toFixed(2).replace(/\.00$/, "");
+};
+
+/* ---------------- COMPONENT ---------------- */
+
 export default function Dashboard() {
-  const wallet = useCurrentAccount();
+  const account = useCurrentAccount();
+  const address = account?.address;
+
+  const client = useSuiClient();
+  const { mutateAsync: signAndExecuteTransaction } =
+    useSignAndExecuteTransaction({
+      execute: async ({ bytes, signature }) =>
+        client.executeTransactionBlock({
+          transactionBlock: bytes,
+          signature,
+          options: {
+            showRawEffects: true,
+            showObjectChanges: true,
+          },
+        }),
+    });
+
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
- const account = useCurrentAccount();
-    const userAddress = account?.address || "";
-    const client = useSuiClient();
-    const { mutateAsync: signAndExecuteTransaction } =
-      useSignAndExecuteTransaction({
-        execute: async ({ bytes, signature }) =>
-          await client.executeTransactionBlock({
-            transactionBlock: bytes,
-            signature,
-            options: {
-              // Raw effects are required so the effects can be reported back to the wallet
-              showRawEffects: true,
-              // Select additional data to return
-              showObjectChanges: true,
-            },
-          }),
-      });
-  useEffect(() => {
-    if (!wallet?.address) {
+  const [loading, setLoading] = useState(true);
+
+  /* ---------------- FETCH DASHBOARD ---------------- */
+
+  const fetchDashboard = useCallback(async () => {
+    if (!address) return;
+
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `https://trust-circle-backend.onrender.com/api/dashboard/address/${address}`
+      );
+      const data = await res.json();
+      setDashboard(data);
+    } catch (err) {
+      console.error("Dashboard fetch failed:", err);
       setDashboard(null);
-      return;
+    } finally {
+      setLoading(false);
     }
+  }, [address]);
 
-    const controller = new AbortController();
-    const { signal } = controller;
+  useEffect(() => {
+    fetchDashboard();
+  }, [fetchDashboard]);
 
-    (async () => {
-      try {
-        const res = await fetch(
-          `https://trust-circle-backend.onrender.com/api/dashboard/address/${wallet.address}`,
-          { signal }
-        );
-        if (!res.ok) throw new Error(`HTTP ${res.status} - ${res.statusText}`);
-        const data: DashboardResponse = await res.json();
-        setDashboard(data);
-      } catch (err: any) {
-        if (err.name === "AbortError") return;
-        console.error("Failed to load dashboard:", err);
-      }
-    })();
+  /* ---------------- PAY CONTRIBUTION ---------------- */
 
-    return () => {
-      controller.abort();
-    };
-  }, [wallet?.address]);
-
-  const mistToSui = (mist: number | string | undefined | null): string => {
-    const n = Number(mist ?? 0);
-    if (!isFinite(n)) return "0";
-    const sui = n / 1_000_000_000; // 1 SUI = 1,000,000,000 mist
-    return Number(sui.toFixed(6)).toString(); // trim to 6 decimals, adjust as needed
-  };
-
-  const dashboardData: {
-    title: string;
-    count: number | string;
-    unit: string;
-    subtitle: string;
-    iconType: IconType;
-  }[] = [
-    {
-      title: "Active Circles",
-      count: dashboard ? dashboard.circles.length : 0,
-      unit: "Circles",
-      subtitle: "Next contribution in 20 hours",
-      iconType: "active",
-    },
-    {
-      title: "Next Payout",
-      count: dashboard ? mistToSui(dashboard.next_payout.payout_amount) : "0",
-      unit: "SUI",
-      subtitle: `from ${dashboard?.next_payout.name}`,
-      iconType: "give",
-    },
-    {
-      title: "Next Contribution Due",
-      count: dashboard ? mistToSui(dashboard.next_contribution.total) : "0",
-      unit: "SUI",
-      subtitle: "Due in 20 hours",
-      iconType: "time",
-    },
-  ];
-
-  if (dashboard) {
-    console.log("Dashboard data:", dashboard);
-  }
-  async function excecutepayContribution(
+  async function executePayContribution(
     contributionAmount: number,
-    circleObjectid: string,
-    currentRound: number,
-    sui_object_id: string
+    circleObjectId: string,
+    currentRound: number
   ) {
-   
+    if (!address) return;
+
     const txb = new Transaction();
-    const [splitCoin] = txb.splitCoins(txb.gas, [
-      txb.pure.u64(Number(contributionAmount)),
-    ]);
+    const [coin] = txb.splitCoins(txb.gas, [txb.pure.u64(contributionAmount)]);
+
     txb.moveCall({
       target: `${PACKAGE_ID}::${MODULE_NAME}::pay_contribution`,
-      arguments: [txb.object(circleObjectid), splitCoin],
+      arguments: [txb.object(circleObjectId), coin],
     });
-    const txResult = await signAndExecuteTransaction({
-      transaction: txb,
-    });
-    await client.waitForTransaction({
-      digest: txResult.digest,
-    });
+
+    const txResult = await signAndExecuteTransaction({ transaction: txb });
+    await client.waitForTransaction({ digest: txResult.digest });
 
     const eventsResult = await client.queryEvents({
       query: { Transaction: txResult.digest },
@@ -160,96 +124,122 @@ export default function Dashboard() {
       });
       const fields = circleObject;
       console.log("Circle Object Fields:", fields);
-let payoutexecuted  = eventsResult.data.length == 2 ? true : false;
-      await fetch("https://trust-circle-backend.onrender.com/api/contributions/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sui_object_id:circleObjectid,
-          user_address: wallet?.address,
-          tx_digest: txResult.digest,
-          round_number: currentRound,
-          payout_executed: payoutexecuted, 
-        }),
-      })
+      let payoutexecuted = eventsResult.data.length == 2 ? true : false;
+      await fetch(
+        "https://trust-circle-backend.onrender.com/api/contributions/sync",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sui_object_id: circleObjectId,
+            user_address: address,
+            tx_digest: txResult.digest,
+            round_number: currentRound,
+            payout_executed: payoutexecuted,
+          }),
+        }
+      )
         .then((response) => response.json())
         .then((data) => {
           console.log("Contribution synced:", data);
+          if (payoutexecuted) {
+            toast.success("Contribution and Payout executed successfully!");
+          } else {
+            toast.success("Contribution executed successfully!");
+          }
         });
     } else {
       console.log("No events found for the given criteria.");
     }
+
+    fetchDashboard();
   }
 
-  return (
-    <div className="min-h-screen bg-cover bg-center  bg-no-repeat gap-y-4 items-center flex flex-col">
-      <DashboardHeader />
-      <div className=" flex flex-col items-center w-[90%] ">
-        <div className="dashboard-body flex gap-y-7 sm:gap-x-12 flex-col sm:flex-row     pt-8 pb-16">
-          {dashboardData.map((data, index) => (
-            <DashboardCard
-              key={index}
-              title={data.title}
-              count={data.count}
-              unit={data.unit}
-              subtitle={data.subtitle}
-              iconType={data.iconType}
-              className="mb-4"
-            />
-          ))}
-        </div>
-        <div className="circle flex flex-col w-full mx-auto pb-16 ">
-          <h2 className="text-white text-2xl font-semibold mb-6">
-            Your Circles
-          </h2>
-          <div className=" mx-auto space-y-6 border-2  w-3/4">
-            <h2 className="text-white text-xl font-semibold mb-6">
-              Savings Club
-            </h2>
+  const cards = [
+    {
+      title: "Active Circles",
+      count: dashboard?.circles.length ?? 0,
+      unit: "Circles",
+      subtitle: "Your active savings circles",
+      iconType: "active",
+    },
+    {
+      title: "Next Payout",
+      count: mistToSui(dashboard?.next_payout?.payout_amount),
+      unit: "SUI",
+      subtitle: dashboard?.next_payout?.name ?? "—",
+      iconType: "give",
+    },
+    {
+      title: "Next Contribution",
+      count: mistToSui(dashboard?.next_contribution?.total),
+      unit: "SUI",
+      subtitle: "Due this round",
+      iconType: "time",
+    },
+  ];
 
-            {(dashboard?.circles ?? []).map((circle) => (
-              <div
-                key={circle.circle_id}
-                className="bg-gray-900/60 border border-gray-700 rounded-xl p-6 flex items-center justify-between gap-6  w-full "
-              >
+  return (
+    <div className="min-h-screen bg-cover bg-center flex flex-col items-center">
+      <DashboardHeader />
+
+      {/* SUMMARY */}
+      <div className="flex gap-6 flex-wrap mt-8">
+        {loading
+          ? Array.from({ length: 3 }).map((_, i) => (
+              <DashboardCardSkeleton key={i} />
+            ))
+          : cards.map((c, i) => <DashboardCard key={i} {...c} />)}
+      </div>
+
+      {/* CIRCLES */}
+      <div className="w-3/4 mt-12 space-y-6">
+        <h2 className="text-white text-2xl font-semibold">Your Circles</h2>
+
+        {loading ? (
+          Array.from({ length: 3 }).map((_, i) => <CircleRowSkeleton key={i} />)
+        ) : dashboard?.circles?.length === 0 ? (
+          <p className="text-gray-400">You are not in any circles yet. <NavLink to={`mycircle`} className="text-blue-700 underline">create circle now </NavLink></p>
+        ) : (
+          dashboard?.circles.map((circle) => (
+            <div
+              key={circle.circle_id}
+              className="bg-gray-900/60 border border-gray-700 rounded-xl p-6 flex justify-between items-center"
+            >
+              <NavLink to={`/circle/${circle.circle_id}`}>
                 <div>
                   <h3 className="text-white text-lg font-semibold">
                     {circle.name}
                   </h3>
-                  <p className="mt-2 text-sm text-gray-400">
-                    <span className="text-gray-300">{`Round ${circle.current_round} of ${circle.total_rounds}`}</span>
-                    <span className="mx-3 text-gray-500">|</span>
-                    <span></span>
+                  <p className="text-gray-400 text-sm mt-1">
+                    Round {circle.current_round} of {circle.total_rounds}
                   </p>
                 </div>
-
-                <div>
-                  {!circle.has_paid ? (
-                    <button
-                      className="bg-amber-800 text-amber-50 px-4 py-2 rounded-md hover:bg-amber-700 transition flex items-center gap-2"
-                      onClick={() =>
-                        excecutepayContribution(
-                          circle.contribution_amount,
-                          circle.sui_object_id,
-                          circle.current_round,
-                          circle.circle_id
-                        )
-                      }
-                    >
-                      <span>Contribute now</span>
-                      <span className="text-xl leading-none">→</span>
-                    </button>
-                  ) : (
-                    <button className="bg-emerald-900 text-emerald-50 px-4 py-2 rounded-md hover:bg-emerald-800 transition flex items-center gap-2">
-                      <span>Ready for payout</span>
-                      <span className="text-xl leading-none">→</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+              </NavLink>
+              {!circle.has_paid ? (
+                <button
+                  onClick={() =>
+                    executePayContribution(
+                      circle.contribution_amount,
+                      circle.sui_object_id,
+                      circle.current_round
+                    )
+                  }
+                  className="bg-amber-800 px-4 py-2 rounded-md text-white hover:bg-amber-700"
+                >
+                  Contribute →
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="bg-emerald-900 px-4 py-2 rounded-md text-white opacity-70"
+                >
+                  Paid this round
+                </button>
+              )}
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

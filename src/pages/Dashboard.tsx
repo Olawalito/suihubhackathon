@@ -148,27 +148,39 @@ export default function Dashboard() {
 
     await client.waitForTransaction({ digest: txResult.digest });
 
-    const events = await client.queryEvents({
+    const eventsResult = await client.queryEvents({
       query: { Transaction: txResult.digest },
     });
-
-    const payoutExecuted = events.data.length === 2;
-
-    await fetch(
-      "https://trust-circle-backend.onrender.com/api/contributions/sync",
-      {
+  console.log(eventsResult);
+    if (eventsResult.data.length > 0) {
+      const firstEvent = eventsResult.data[0]?.parsedJson;
+      const result = firstEvent || "No events found for the given criteria.";
+      console.log(result);
+      const circleObject = await client.getObject({
+        id: result?.circle_id,
+        options: { showContent: true },
+      });
+      const fields = circleObject;
+      console.log("Circle Object Fields:", fields);
+let payoutexecuted  = eventsResult.data.length == 2 ? true : false;
+      await fetch("https://trust-circle-backend.onrender.com/api/contributions/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sui_object_id: circleObjectId,
-          user_address: walletAddress,
+          sui_object_id:circleObjectid,
+          user_address: wallet?.address,
           tx_digest: txResult.digest,
           round_number: currentRound,
-          payout_executed: payoutExecuted,
+          payout_executed: payoutexecuted, 
         }),
-      }
-    );
-
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          console.log("Contribution synced:", data);
+        });
+    } else {
+      console.log("No events found for the given criteria.");
+    }
     // ✅ REFRESH DASHBOARD AFTER TX
     await refetchDashboard();
   }
