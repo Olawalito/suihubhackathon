@@ -1,7 +1,7 @@
 import createicon from '../../assets/create-icon.png'
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react'
-import React from 'react'
+import { toast } from 'react-toastify';
 import {
   useSuiClient,
   useCurrentAccount,
@@ -35,7 +35,7 @@ export default function Addcircle() {
   const uniqueAddresses = addresses.filter(m => m.address !== userAddress);
   let members = [userAddress, ...uniqueAddresses.map(m => m.address)];
 
-  function suiToMist(sui) {
+  function suiToMist(sui:String) {
     if (!sui) return "0";
     const [whole, fraction = ""] = sui.toString().split(".");
     const paddedFraction = (fraction + "000000000").slice(0, 9);
@@ -82,7 +82,7 @@ export default function Addcircle() {
       }),
   });
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e:Event) => {
     e.preventDefault();
     if (!addresses.every((m) => m.address.trim() !== '')) return;
 
@@ -127,8 +127,9 @@ export default function Addcircle() {
           total_rounds: fields?.total_rounds, 
           current_round: 1 
         }]);
-
-        const res = await fetch("https://trust-circle-backend.onrender.com/api/circles/sync", {
+        console.log(allMembers)
+       console.log(members)
+        const res = await fetch("http://localhost:3000/api/circles/sync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -136,7 +137,7 @@ export default function Addcircle() {
             description: "### New Circle Created via Dapp",
             sui_object_id: firstEvent?.circle_id,
             creator_address: firstEvent?.creator,
-            members: members,
+            members: allMembers,
             contribution_amount: contribution,
             current_round: 1,
             total_rounds: fields?.total_rounds,
@@ -149,8 +150,10 @@ export default function Addcircle() {
           setCircleDraft({ name: '', amount: '', contributors: 0, frequency: 'weekly' });
           setAddresses([]);
           setIsOpen(false);
-          // Redirect to the list of circles
-          navigate('/mycircle');
+          
+             toast.success("Circle created successfully!");
+          navigate('/dashboard');
+          
         }
       }
     } catch (error) {

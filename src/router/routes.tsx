@@ -24,7 +24,7 @@ export const router = createBrowserRouter([
     element: <Activity />,
   },
   {
-    path: '/circleactivity',
+    path: '/circle/:circleId',
     element: <Circleactivity />,
   }
 ]);
