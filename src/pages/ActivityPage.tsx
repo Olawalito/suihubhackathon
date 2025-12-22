@@ -81,7 +81,7 @@ export default function ActivityPage() {
     setLoading(true);
 
     fetch(
-      `http://localhost:3000/api/users/activity/${wallet}`
+      `https://trust-circle-backend.onrender.com/api/users/activity/${wallet}`
     )
       .then(res => res.json())
       .then(data => {
