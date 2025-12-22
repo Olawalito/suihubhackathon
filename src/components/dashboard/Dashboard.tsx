@@ -200,7 +200,6 @@ export default function Dashboard() {
           Array.from({ length: 3 }).map((_, i) => <CircleRowSkeleton key={i} />)
         ) : dashboard?.circles?.length === 0 ? (
           <p className="text-gray-400">You are not in any circles yet. <NavLink to="/mycircle" className="text-blue-700 underline">create circle now </NavLink></p>
-          <p className="text-gray-400">You are not in any circles yet. <NavLink to={"/mycircle"} className="text-blue-700 underline">create circle now </NavLink></p>
         ) : (
           dashboard?.circles.map((circle) => (
             <div
