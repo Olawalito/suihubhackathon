@@ -119,7 +119,7 @@ export default function Addcircle() {
         const fields = circleObject?.data?.content?.fields;
 
         // 1. Add to local state so the card shows up immediately
-        const allMembers = [{ name: 'You', address: userAddress }, ...uniqueAddresses];
+        const allMembers = [{ name: 'Creator', address: userAddress }, ...uniqueAddresses];
         setCircles([...circles, { 
           ...circleDraft, 
           addresses: allMembers, 

@@ -16,7 +16,7 @@ export default function Circleactivity() {
   async function fetchCircleActivity() {
     try {
       setLoading(true)
-      const res = await fetch(`http://localhost:3000/api/circles/${circleId}`)
+      const res = await fetch(`https://trust-circle-backend.onrender.com/api/circles/${circleId}`)
 
       if (!res.ok) {
         throw new Error('Failed to fetch circle data')
