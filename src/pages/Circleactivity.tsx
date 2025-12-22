@@ -41,7 +41,7 @@ export default function Circleactivity() {
             <DashboardHeader />
 
       <h1 className="text-white my-6 mx-12 md:text-3xl sm:text-2xl">
-        Circle Activity
+        {circleData.circle?.name || 'Circle Activity'}
       </h1>
 
       <div className="mw-full bg-gradient-to-br from-[#1b1b1b] via-[#0f0f0f] to-[#1a0b05] border border-white/10 p-6 rounded-4xl shadow-xs text-white md:mx-32">
